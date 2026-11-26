@@ -2,13 +2,16 @@ import { useState } from 'react'
 import { FACTORS_REVIEWED, MODES, SMOG_SEASON_WEEKS } from '../data/factors'
 import { alternatives, savings, tripOption } from '../lib/exposure'
 import type { Facts } from '../lib/facts'
-import { LIMITS, MODE_IDS } from '../lib/household'
+import { LIMITS } from '../lib/household'
 import type { Household, Mode } from '../types'
+import { NumberField } from './NumberField'
+import { MODE_OPTIONS } from './options'
+import { SelectField } from './SelectField'
 import { Card, H2, inputCls, Note } from './ui'
 
 /** Compare ways to make a trip: smog breathed in by you, and smog and CO2 put into the city. */
 export function Commute({ household, facts }: { household: Household; facts: Facts }) {
-  const trips = household.members.flatMap((m) => m.activities.filter((a) => a.mode).map((a) => ({ m, a })))
+  const trips = household.members.flatMap((m) => m.activities.flatMap((a) => (a.mode ? [{ m, a, mode: a.mode }] : [])))
   const [choice, setChoice] = useState(trips[0] ? `${trips[0].m.id}/${trips[0].a.id}` : 'custom')
   const picked = trips.find((t) => `${t.m.id}/${t.a.id}` === choice)
   const [custom, setCustom] = useState({ mode: 'car_petrol' as Mode, km: 10, tripsPerWeek: 5 })
@@ -16,7 +19,7 @@ export function Commute({ household, facts }: { household: Household; facts: Fac
 
   const trip = picked
     ? {
-        mode: picked.a.mode!,
+        mode: picked.mode,
         km: picked.a.km ?? 5,
         tripsPerWeek: picked.a.tripsPerWeek ?? 5,
         age: picked.m.age,
@@ -56,52 +59,28 @@ export function Commute({ household, facts }: { household: Household; facts: Fac
         </label>
         {!picked && (
           <>
-            <label>
-              Mode
-              <select
-                className={`${inputCls} mt-1`}
-                value={custom.mode}
-                onChange={(e) => setCustom({ ...custom, mode: e.target.value as Mode })}
-              >
-                {MODE_IDS.map((m) => (
-                  <option key={m} value={m}>
-                    {MODES[m].label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              One way (km)
-              <input
-                type="number"
-                className={`${inputCls} mt-1 w-24`}
-                min={LIMITS.km.min}
-                max={LIMITS.km.max}
-                value={custom.km}
-                onChange={(e) =>
-                  setCustom({
-                    ...custom,
-                    km: Math.min(LIMITS.km.max, Math.max(LIMITS.km.min, Number(e.target.value) || LIMITS.km.min)),
-                  })
-                }
-              />
-            </label>
-            <label>
-              Round trips / week
-              <input
-                type="number"
-                className={`${inputCls} mt-1 w-24`}
-                min={1}
-                max={14}
-                value={custom.tripsPerWeek}
-                onChange={(e) =>
-                  setCustom({
-                    ...custom,
-                    tripsPerWeek: Math.min(14, Math.max(1, Math.round(Number(e.target.value) || 1))),
-                  })
-                }
-              />
-            </label>
+            <SelectField
+              label="Mode"
+              value={custom.mode}
+              options={MODE_OPTIONS}
+              selectClassName="mt-1"
+              onChange={(mode) => setCustom({ ...custom, mode })}
+            />
+            <NumberField
+              label="One way (km)"
+              value={custom.km}
+              range={LIMITS.km}
+              inputClassName="mt-1 w-24"
+              onChange={(km) => setCustom({ ...custom, km })}
+            />
+            <NumberField
+              label="Round trips / week"
+              value={custom.tripsPerWeek}
+              range={LIMITS.tripsPerWeek}
+              integer
+              inputClassName="mt-1 w-24"
+              onChange={(tripsPerWeek) => setCustom({ ...custom, tripsPerWeek })}
+            />
           </>
         )}
       </div>

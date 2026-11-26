@@ -92,10 +92,13 @@ React 19 + TypeScript + Vite + Tailwind. **No backend and no database:** the hou
 chain. Without AI configured, everything except the AI wording works (rule-based plan and answers).
 
 ```
-src/lib    aqi cpcb forecast geo time windows exposure indoor plan facts household storage verify ruleBrief
-           ai prompts aiTasks                                                         <- the only model I/O
+src/lib    aqi cpcb forecast geo time windows exposure indoor plan facts      <- live data + decisions (pure, tested)
+           household householdEdits numbers storage verify ruleBrief          <- validation, edits, trust layer
+           ai prompts aiTasks                                                 <- the only model I/O
+src/data   factors (every constant, with its source) presets (sample households)
 src/hooks  useSaans (single owner of state)
-src/components LocationPicker AirNow DayPlan HourChart HomeAir Commute Ask HouseholdEditor
+src/components LocationPicker AirNow DayPlan HourChart HomeAir Commute Ask
+               HouseholdStart HouseholdEditor MemberCard ActivityRow NumberField SelectField
 ```
 
 ## 5. Security

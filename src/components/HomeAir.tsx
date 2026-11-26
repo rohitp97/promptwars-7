@@ -4,6 +4,7 @@ import type { Facts } from '../lib/facts'
 import { LIMITS } from '../lib/household'
 import { assessRoom, SOURCE_ORDER, SOURCE_TIPS } from '../lib/indoor'
 import type { Home, Room } from '../types'
+import { NumberField } from './NumberField'
 import { AqiBadge, Card, H2, inputCls, Note } from './ui'
 
 const PURIFIER_TEXT = {
@@ -16,7 +17,6 @@ export function HomeAir({ home, facts, onChange }: { home: Home; facts: Facts; o
   const outdoor = facts.home.outdoorPm25Now
   const setRoom = (id: string, patch: Partial<Room>): void =>
     onChange({ ...home, rooms: home.rooms.map((r) => (r.id === id ? { ...r, ...patch } : r)) })
-  const num = (v: string, min: number, max: number): number => Math.min(max, Math.max(min, Number(v) || 0))
 
   return (
     <div className="space-y-4">
@@ -46,31 +46,21 @@ export function HomeAir({ home, facts, onChange }: { home: Home; facts: Facts; o
               <article key={room.id} className="rounded-xl border border-line p-3">
                 <h3 className="font-bold">{room.name}</h3>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                  <label>
-                    Floor area (sq ft)
-                    <input
-                      type="number"
-                      className={inputCls}
-                      min={LIMITS.areaSqft.min}
-                      max={LIMITS.areaSqft.max}
-                      value={room.areaSqft}
-                      onChange={(e) =>
-                        setRoom(room.id, { areaSqft: num(e.target.value, LIMITS.areaSqft.min, LIMITS.areaSqft.max) })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Purifier CADR (m³/h, 0 = none)
-                    <input
-                      type="number"
-                      className={inputCls}
-                      min={0}
-                      max={LIMITS.cadr.max}
-                      step={10}
-                      value={room.purifierCadr}
-                      onChange={(e) => setRoom(room.id, { purifierCadr: num(e.target.value, 0, LIMITS.cadr.max) })}
-                    />
-                  </label>
+                  <NumberField
+                    label="Floor area (sq ft)"
+                    value={room.areaSqft}
+                    range={LIMITS.areaSqft}
+                    integer
+                    onChange={(areaSqft) => setRoom(room.id, { areaSqft })}
+                  />
+                  <NumberField
+                    label="Purifier CADR (m³/h, 0 = none)"
+                    value={room.purifierCadr}
+                    range={LIMITS.cadr}
+                    step={10}
+                    integer
+                    onChange={(purifierCadr) => setRoom(room.id, { purifierCadr })}
+                  />
                 </div>
                 <dl className="mt-3 space-y-1 text-sm">
                   <div className="flex flex-wrap items-center gap-2">

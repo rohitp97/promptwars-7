@@ -33,12 +33,26 @@ out, what to do at home, and what each choice changes for them and for the city'
 npm install
 cp .env.example .env   # add VITE_DATA_GOV_IN_KEY and Firebase web config (or a dev-only Gemini key)
 npm run dev
-npm test               # 154 tests, axe + WCAG contrast included
+npm test               # 168 tests, axe + WCAG contrast included
 npm run build && npm run deploy
 ```
 
 Works without any keys: the CPCB sample key and Open-Meteo need none, and without AI the plan and
 answers come from the computed engine.
+
+## How the code is organised
+
+- **`src/lib`**: pure, unit-tested TypeScript, no React. Live data (`cpcb`, `forecast`, `geo`), the
+  Indian AQI (`aqi`), decisions (`plan`, `windows`, `exposure`, `indoor`), validation and edits
+  (`household`, `householdEdits`, `numbers`, `storage`) and the trust layer (`verify`, `facts`).
+  `ai`, `prompts` and `aiTasks` are the only files that talk to the model.
+- **`src/data`**: every physical constant with its source (`factors`) and the sample households (`presets`).
+- **`src/hooks/useSaans`**: the single owner of app state.
+- **`src/components`**: thin React views; inputs go through `NumberField` / `SelectField`, so no
+  out-of-range value ever reaches the engine.
+
+Quality gates: TypeScript strict build, oxlint (0 warnings), Prettier, Vitest with ~92% line
+coverage, axe-core on every tab, and WCAG AA contrast asserted for every colour pair.
 
 ## Data sources
 - Central Pollution Control Board, *Real time Air Quality Index from various locations*, via data.gov.in (hourly).

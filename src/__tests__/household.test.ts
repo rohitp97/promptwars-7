@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { haversineKm, inIndia, placeFromCoords, reverseGeocode, searchPlaces, toCpcbName } from '../lib/geo'
-import { PRESETS, sanitizeActivity, sanitizeHousehold, sanitizeMember } from '../lib/household'
+import { PRESETS } from '../data/presets'
+import { sanitizeActivity, sanitizeHousehold, sanitizeMember } from '../lib/household'
 import { parsePlace, parseSaved } from '../lib/storage'
 import { fakeFetch } from './fixtures'
 
