@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { answerQuestion, intakeHousehold, questionLang, writeBrief } from '../lib/aiTasks'
+import { answerQuestion, generateJson, intakeHousehold, questionLang, writeBrief } from '../lib/aiTasks'
 import { parseJsonLoose } from '../lib/ai'
 import { airingHour, buildFacts, mainCommuteSwap } from '../lib/facts'
 import { PRESETS } from '../lib/household'
@@ -192,5 +192,37 @@ describe('AI tasks', () => {
   })
   it('parseJsonLoose strips code fences', () => {
     expect(parseJsonLoose('```json\n{"a":1}\n```')).toEqual({ a: 1 })
+  })
+})
+
+describe('generateJson', () => {
+  const sequence = (...replies: string[]): AiProvider & { calls: number } => {
+    const p = {
+      name: 'gemini-api-key' as const,
+      calls: 0,
+      generate: async () => replies[Math.min(p.calls++, replies.length - 1)],
+    }
+    return p
+  }
+  const req = { systemInstruction: 's', prompt: 'p', json: true }
+
+  it('retries once when the model returns broken JSON (seen live with a Hindi plan)', async () => {
+    const ai = sequence('{"headline": "हवा "खराब" है"}', '{"headline":"ok"}')
+    expect(await generateJson(ai, req)).toEqual({ headline: 'ok' })
+    expect(ai.calls).toBe(2)
+  })
+  it('gives up after the second broken reply', async () => {
+    const ai = sequence('{bad', '{still bad')
+    await expect(generateJson(ai, req)).rejects.toThrow(SyntaxError)
+    expect(ai.calls).toBe(2)
+  })
+  it('does not retry provider errors (those are handled by model failover)', async () => {
+    const ai: AiProvider = {
+      name: 'gemini-api-key',
+      generate: async () => {
+        throw new Error('403 forbidden')
+      },
+    }
+    await expect(generateJson(ai, req)).rejects.toThrow('403')
   })
 })

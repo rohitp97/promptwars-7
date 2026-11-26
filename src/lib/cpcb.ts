@@ -185,11 +185,20 @@ export async function fetchNearbyStations(
   add('city', place.district)
   add('state', place.state)
 
-  for (const [filter, value] of attempts) {
-    const readings = await withRetry(() => areaReadings(fetchFn, key, { [filter]: value }, place), retryDelayMs)
-    if (readings.length > 0) return readings
+  const search = async (): Promise<StationReading[]> => {
+    for (const [filter, value] of attempts) {
+      const readings = await withRetry(() => areaReadings(fetchFn, key, { [filter]: value }, place), retryDelayMs)
+      if (readings.length > 0) return readings
+    }
+    return []
   }
-  return []
+  const first = await search()
+  if (first.length > 0) return first
+  // CPCB republishes the whole table every hour, and for a minute or so a city can come back with
+  // few or no rows (seen live: Delhi returned nothing at 21:30 IST, then 392 rows moments later).
+  // One delayed second pass avoids showing "no station" for a city that has dozens.
+  await new Promise((r) => setTimeout(r, retryDelayMs))
+  return search()
 }
 
 /** The shared sample key is refused for a few seconds after a burst; one patient retry usually gets through. */

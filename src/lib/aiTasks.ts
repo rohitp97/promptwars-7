@@ -1,4 +1,4 @@
-import type { AiProvider, Household } from '../types'
+import type { AiProvider, AiRequest, Household } from '../types'
 import { parseJsonLoose } from './ai'
 import type { Facts } from './facts'
 import { sanitizeHousehold } from './household'
@@ -8,12 +8,27 @@ import { allowedNumbers, checkText } from './verify'
 export const MAX_INTAKE_CHARS = 2000
 export const MAX_QUESTION_CHARS = 300
 
+/**
+ * JSON mode is not a guarantee: in a live test Gemini returned a Hindi plan with a broken string
+ * ("Expected ',' or '}' … at position 1242"). One fresh attempt almost always comes back valid,
+ * so a malformed reply is retried once before the caller falls back to the computed plan.
+ */
+export async function generateJson(ai: AiProvider, req: AiRequest): Promise<unknown> {
+  try {
+    return parseJsonLoose(await ai.generate(req))
+  } catch (err) {
+    if (!(err instanceof SyntaxError)) throw err
+    return parseJsonLoose(await ai.generate(req))
+  }
+}
+
 /** Free text → validated household. The model proposes, sanitizeHousehold() decides. */
 export async function intakeHousehold(ai: AiProvider, description: string): Promise<Household> {
   const text = description.trim().slice(0, MAX_INTAKE_CHARS)
   if (text.length < 10) throw new Error('Tell us a little more about who lives at home and their day.')
-  const raw = await ai.generate({ systemInstruction: INTAKE_SYSTEM, prompt: wrap('household', text), json: true })
-  const household = sanitizeHousehold(parseJsonLoose(raw))
+  const household = sanitizeHousehold(
+    await generateJson(ai, { systemInstruction: INTAKE_SYSTEM, prompt: wrap('household', text), json: true }),
+  )
   if (!household) throw new Error('Could not find any people in that description. Try naming who lives at home.')
   return household
 }
@@ -24,12 +39,11 @@ export type Brief = Record<BriefPart, string> & { removed: string[]; source: 'ai
 
 /** Today's plan in words. Each part goes through the number verifier. */
 export async function writeBrief(ai: AiProvider, facts: Facts, lang: Lang): Promise<Brief> {
-  const raw = await ai.generate({
+  const parsed = (await generateJson(ai, {
     systemInstruction: BRIEF_SYSTEM(lang),
     prompt: wrap('facts', JSON.stringify(facts)),
     json: true,
-  })
-  const parsed = parseJsonLoose(raw) as Partial<Record<BriefPart, unknown>>
+  })) as Partial<Record<BriefPart, unknown>>
   const allowed = allowedNumbers(facts)
   const removed: string[] = []
   const out = { removed, source: 'ai' } as Brief
@@ -51,12 +65,11 @@ export interface Answer {
 export async function answerQuestion(ai: AiProvider, facts: Facts, question: string, lang: Lang): Promise<Answer> {
   const q = question.trim().slice(0, MAX_QUESTION_CHARS)
   if (!q) throw new Error('Type a question first.')
-  const raw = await ai.generate({
+  const parsed = (await generateJson(ai, {
     systemInstruction: ASK_SYSTEM(lang),
     prompt: `${wrap('facts', JSON.stringify(facts))}\n${wrap('question', q)}`,
     json: true,
-  })
-  const parsed = parseJsonLoose(raw) as { answer?: unknown }
+  })) as { answer?: unknown }
   const answer = typeof parsed.answer === 'string' ? parsed.answer : ''
   const checked = checkText(answer.slice(0, 1500), allowedNumbers(facts))
   if (!checked.text) throw new Error('The AI could not answer that from the live data. Try rephrasing.')

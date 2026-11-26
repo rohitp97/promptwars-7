@@ -116,8 +116,8 @@ describe('fetchNearbyStations', () => {
       ['filters%5Bstation%5D', { total: 0, records: [] }],
     ])
     await fetchNearbyStations(delhi, SAMPLE_KEY, fn)
-    // Five pages for the town; the same again for the state fallback, never the full 50.
-    expect(calls.filter((c) => c.includes('pollutant_id') && c.includes('city')).length).toBe(5)
+    // Five pages for the town per pass (no station found → one delayed second pass), never the full 50.
+    expect(calls.filter((c) => c.includes('pollutant_id') && c.includes('city')).length).toBe(10)
   })
 
   it('falls back from the town to the state', async () => {
@@ -149,6 +149,17 @@ describe('fetchNearbyStations', () => {
     }
     const readings = await fetchNearbyStations(delhi, 'k', fn)
     expect(readings).toHaveLength(2)
+  })
+
+  it('searches again when CPCB is mid-refresh and returns no rows', async () => {
+    let n = 0
+    const fn = async (): Promise<Response> => {
+      n++
+      const records = n <= 2 ? [] : [...talkatora, ...narela] // city + state empty, then data is back
+      return new Response(JSON.stringify({ total: records.length, records }))
+    }
+    const readings = await fetchNearbyStations(delhi, 'k', fn)
+    expect(readings.map((r) => r.station.name)).toEqual(['Talkatora', 'Narela'])
   })
 
   it('throws on HTTP errors after the retry', async () => {
